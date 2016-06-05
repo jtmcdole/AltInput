@@ -95,42 +95,10 @@ namespace AltInput
     }
 
     /// <summary>
-    /// A button on the input device
-    /// </summary>
-    public struct AltButton
-    {
-        public int LastValue;
-        public Boolean[] Continuous;
-        public AltMapping[] Mapping;
-    }
-
-    /// <summary>
-    /// A Point Of View control on the input device
-    /// </summary>
-    public struct AltPOV
-    {
-        public int LastValue;
-        // We consider that a POV is a set of 4 buttons
-        public AltButton[] Button;  // Gotta wonder what the heck is wrong with these "high level" languages
-        // when you can't do something as elementary as declaring a BLOODY FIXED SIZE ARRAY IN A STRUCT...
-    }
-
-    /// <summary>
     /// A Direct Input Device (typically a game controller)
     /// </summary>
     public class AltDirectInputDevice : AltDevice
     {
-        /// <summary>POV positions</summary>
-        public enum POVPosition
-        {
-            Up = 0,
-            Right,
-            Down,
-            Left
-        };
-        public readonly static String[] POVPositionName = Enum.GetNames(typeof(POVPosition));
-        public readonly static int NumPOVPositions = POVPositionName.Length;
-
         /// <summary>Names for the axes. Using a double string array allows to map not so
         /// user-friendly DirectInput names to more user-friendly config counterparts.</summary>
         public readonly static String[,] AxisList = new String[,] {
@@ -148,8 +116,6 @@ namespace AltInput
         /// <summary>Default sensitivity of the device</summary>
         public float Factor = 1.0f;
         public AltAxis[] Axis;
-        public AltPOV[] Pov;
-        public AltButton[] Button;
         public Joystick Joystick;
 
         public AltDirectInputDevice(DirectInput directInput, DeviceClass deviceClass, Guid instanceGUID)
@@ -167,54 +133,21 @@ namespace AltInput
                 this.Axis[i].Mapping1 = new AltMapping[GameState.NumModes];
                 this.Axis[i].Mapping2 = new AltMapping[GameState.NumModes];
             }
-            this.Pov = new AltPOV[this.Joystick.Capabilities.PovCount];
-
-            for (var i = 0; i < this.Pov.Length; i++)
-            {
-                this.Pov[i].Button = new AltButton[NumPOVPositions];
-                this.Pov[i].LastValue = -1;     // Must be set for POVs, as it's nonzero
-                for (var j = 0; j < NumPOVPositions; j++)
-                {
-                    this.Pov[i].Button[j].Continuous = new Boolean[GameState.NumModes];
-                    this.Pov[i].Button[j].Mapping = new AltMapping[GameState.NumModes];
-                }
-            }
-            this.Button = new AltButton[this.Joystick.Capabilities.ButtonCount];
-            for (var i = 0; i < this.Button.Length; i++)
-            {
-                this.Button[i].Continuous = new Boolean[GameState.NumModes];
-                this.Button[i].Mapping = new AltMapping[GameState.NumModes];
-            }
         }
 
         public override void ProcessInput()
         {
-            Boolean[] updatedAxis = new Boolean[AltDirectInputDevice.AxisList.GetLength(0)];
-            Boolean[] updatedPov = new Boolean[Pov.Length];
-            Boolean[] updatedButton = new Boolean[Button.Length];
             uint CurrentMode = (uint)GameState.CurrentMode;
             Joystick.Poll();
             var data = Joystick.GetBufferedData();
             foreach (var state in data)
             {
+                // Only mapping axis
+                if (state.Offset > JoystickOffset.Sliders1) continue;
+
                 String OffsetName = Enum.GetName(typeof(JoystickOffset), state.Offset);
-                if (OffsetName.StartsWith("Buttons"))
-                {
-                    // This call should always succeed
-                    uint i = uint.Parse(OffsetName.Substring("Buttons".Length));
-                    // DirectInput doc says a button is pressed if the MSB is set
-                    GameState.UpdateButton(Button[i].Mapping[(uint)GameState.CurrentMode], (state.Value >= 0x80)? 1.0f : 0.0f);
-                    updatedButton[i] = true;
-                    Button[i].LastValue = state.Value;
-                }
-                else if (OffsetName.StartsWith("PointOf"))
-                {
-                    uint i = uint.Parse(OffsetName.Substring("PointOfViewControllers".Length));
-                    GameState.UpdatePov(Pov[i], state.Value, (uint)GameState.CurrentMode, false);
-                    updatedPov[i] = true;
-                    Pov[i].LastValue = state.Value;
-                }
-                else for (var i = 0; i < AltDirectInputDevice.AxisList.GetLength(0); i++)
+                // TODO(jtmcdole): Use a map to match values (my C# is very weak).
+                for (var i = 0; i < AltDirectInputDevice.AxisList.GetLength(0); i++)
                 {
                     if ((!Axis[i].isAvailable) || (String.IsNullOrEmpty(Axis[i].Mapping1[CurrentMode].Action)))
                         continue;
@@ -244,53 +177,13 @@ namespace AltInput
                             case ControlType.Axis:
                                 GameState.UpdateAxis(Axis[i].Mapping1[CurrentMode], value, Axis[i].Control[CurrentMode].Factor);
                                 break;
-                            case ControlType.OneShot:
-                                var MinThreshold = -1.0f * Axis[i].Control[CurrentMode].DeadZone;
-                                var MaxThreshold = +1.0f * Axis[i].Control[CurrentMode].DeadZone;
-                                // When an axis is used as OneShot, we detect transitions across the threshold(s)
-                                if ((Axis[i].LastValue < MinThreshold) && (value >= MinThreshold))
-                                    GameState.UpdateButton(Axis[i].Mapping1[CurrentMode], 0.0f);
-                                else if ((Axis[i].LastValue > MinThreshold) && (value <= MinThreshold))
-                                    GameState.UpdateButton(Axis[i].Mapping1[CurrentMode], 1.0f);
-                                else if ((Axis[i].LastValue < MaxThreshold) && (value >= MaxThreshold))
-                                    GameState.UpdateButton(Axis[i].Mapping2[CurrentMode], 1.0f);
-                                else if ((Axis[i].LastValue > MaxThreshold) && (value <= MaxThreshold))
-                                    GameState.UpdateButton(Axis[i].Mapping2[CurrentMode], 0.0f);
-                                break;
-                            case ControlType.Continuous:
-                                GameState.UpdateButton((value < 0.0f) ? Axis[i].Mapping1[CurrentMode] :
-                                    Axis[i].Mapping2[CurrentMode], Math.Abs(value));
-                                break; 
                             default:
                                 print("AltInput: DirectInputDevice.ProcessInput() - unhandled control type");
                                 break;
                         }
-                        updatedAxis[i] = true;
                         Axis[i].LastValue = value;
                     }
                 }
-            }
-            // Now update all controls that are in Continuous mode and that weren't previously updated
-            for (var i = 0; i < AltDirectInputDevice.AxisList.GetLength(0); i++)
-            {
-                // Only update the axis if it's Continuous, nonzero and wasn't updated  from regular check
-                if ((!Axis[i].isAvailable) || (Axis[i].Control[CurrentMode].Type != ControlType.Continuous) ||
-                    (Axis[i].LastValue == 0.0f) || (updatedAxis[i]))
-                    continue;
-                GameState.UpdateButton((Axis[i].LastValue < 0.0f) ? Axis[i].Mapping1[CurrentMode] :
-                    Axis[i].Mapping2[CurrentMode], Math.Abs(Axis[i].LastValue));
-            }
-            for (uint i = 0; i < Button.Length; i++)
-            {
-                if ((!Button[i].Continuous[CurrentMode]) || (Button[i].LastValue < 0x80) || (updatedButton[i]))
-                    continue;
-                GameState.UpdateButton(Button[i].Mapping[CurrentMode], 1.0f);
-            }
-            for (uint i = 0; i < Pov.Length; i++)
-            {
-                if ((Pov[i].LastValue < 0) || (updatedPov[i]))
-                    continue;
-                GameState.UpdatePov(Pov[i], Pov[i].LastValue, CurrentMode, true);
             }
         }
 
@@ -323,10 +216,6 @@ namespace AltInput
                 if (Axis[i].isAvailable && (!Axis[i].Mapping1[m].Action.EndsWith("Throttle")))
                     GameState.UpdateAxis(Axis[i].Mapping1[m], 0.0f, Axis[i].Control[m].Factor);
             }
-            for (var i = 0; i < Joystick.Capabilities.ButtonCount; i++)
-                GameState.UpdateButton(Button[i].Mapping[m], 0.0f);
-            for (var i = 0; i < Joystick.Capabilities.PovCount; i++)
-                GameState.UpdatePov(Pov[i], -1, m, false);
         }
     }
 }

@@ -1,13 +1,19 @@
-AltInput — Alternate Input plugin for Kerbal Space Program
+AltInput: Alternate Input plugin for Kerbal Space Program
 ==========================================================
-
-__Note:__ Pre-compiled binaries for this plugin can be found at
-http://ksp.akeo.ie/downloads/AltInput
 
 Description
 --------------------------------------
 
-This module provides an alternate input method for Kerbal Space Program.
+This is a very stripped down fork of AltInput in order to just work with the
+Microsoft SideWinder Force Feedback Pro 2 (axial correction). Unity only reads
+the raw input for a controller and the center position on the FF2 is accurate
+enought to cause Unity to report hard-left roll and yaw, and hard-down pitch.
+
+Why did I get rid of everything else? Beacuse you should be using the
+Advanced Fly By Wire mod! You can edit the button bindings live, rotate between
+presets, etc.
+
+[AFBW](http://forum.kerbalspaceprogram.com/index.php?/topic/85711-11-afbw-v17-beta-joystick-controller-mod/http://forum.kerbalspaceprogram.com/index.php?/topic/85711-11-afbw-v17-beta-joystick-controller-mod/)
 
 Currently it only does so for [DirectInput](http://msdn.microsoft.com/en-us/library/windows/desktop/ee416842.aspx)
 Joysticks, and as such will only work on Windows. 
@@ -25,7 +31,7 @@ Compilation
 according to your path: 
 ```
   <PropertyGroup>
-    <KSPPath>E:\Program Files (x86)\Steam\SteamApps\common\Kerbal Space Program</KSPPath>
+    <KSPPath>C:\Program Files\Steam\SteamApps\common\Kerbal Space Program</KSPPath>
   </PropertyGroup>
 ```
 * Open the project and compile. If you edited the `KSPPath` variable above, all
@@ -61,8 +67,6 @@ These are the names you should use for `Control` when adding a
 * `RotationY`
 * `RotationZ`
 * `Slider[1-2]`
-* `Button[1-128]`
-* `POV[1-4]`
 
 Anything that isn't in the list above is not handled.
 
@@ -72,36 +76,9 @@ use for `Mapping` when adding a `Control = Mapping` line in your config file:
 * `pitch`
 * `roll`
 * `mainThrottle`
-* `wheelSteer`
-* `wheelThrottle`
 * `X` - Translation X
 * `Y` - Translation Y
 * `Z` - Translation Z
-* `toggleAbort`
-* `switchMode` - switch input mode(Flight/AltFlight/Ground). This effectively 
-   means that the relevant [input#.<Mode>] section is used for the controls. 
-   Note: 'Ground' mode only becomes available if the craft is landed or splashed.
-* `activateBrakes`
-* `toggleBrakes`
-* `activateCustom[01-10]`
-* `toggleCustom[01-10]`
-* `toggleGears`
-* `toggleLights`
-* `overrideRCS`
-* `toggleRCS`
-* `overrideSAS`
-* `toggleSAS`
-* `activateStaging`
-* `switchView` - Switch camera view (auto/free/orbital/chase)
-* `toggleMapView` - Switch between Map view and Staging/Docking view
-* `toggleNavBall`
-* `increaseWarp`
-* `decreaseWarp`
-* `killThrottle`
-* `fullThrottle`
-
-Anything that isn't in the list above is not handled.
-
 
 How do I find the names I should use for my controls?
 --------------------------------------

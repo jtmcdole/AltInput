@@ -53,7 +53,7 @@ namespace AltInput
         public static readonly System.Version dllVersion = typeof(AltDevice).Assembly.GetName().Version;
         public static readonly System.Version currentVersion = new System.Version("1.4");
         public static System.Version iniVersion;
-        // Good developers do NOT let end-users fiddle with XML configuration files...
+
         public static IniFile ini = null;
         private DirectInput directInput = new DirectInput();
         private static readonly char[] Separators = { '[', ']', ' ', '\t' };
@@ -73,13 +73,7 @@ namespace AltInput
             try
             {
                 String[] MappingData = ConfigData.Split(Separators, StringSplitOptions.RemoveEmptyEntries);
-                if (MappingData[0].EndsWith(".Delta"))
-                {
-                    Mapping[mode].Type = MappingType.Delta;
-                    Mapping[mode].Action = MappingData[0].Remove(MappingData[0].IndexOf(".Delta"));
-                    float.TryParse(MappingData[1], out Mapping[mode].Value);
-                }
-                else if (MappingData.Length == 1)
+                if (MappingData.Length == 1)
                 {
                     Mapping[mode].Type = MappingType.Range;
                     Mapping[mode].Action = MappingData[0];
@@ -114,12 +108,6 @@ namespace AltInput
             // Check whether we are dealing with a regular axis or one used as buttons
             if ((ini.IniReadValue(Section, Name + ".Min") == "") && (ini.IniReadValue(Section, Name + ".Max") == ""))
                 Control[mode].Type = ControlType.Axis;
-            else
-            {
-                Boolean Continuous;
-                Boolean.TryParse(ini.IniReadValue(Section, Name + ".Continuous"), out Continuous);
-                Control[mode].Type = Continuous ? ControlType.Continuous: ControlType.OneShot;
-            }
         }
 
         /// <summary>
@@ -226,59 +214,6 @@ namespace AltInput
                 }
 #endif
             }
-
-            // Process the POV controls
-            for (var i = 0; i < Device.Joystick.Capabilities.PovCount; i++)
-            {
-                for (var j = 0; j < AltDirectInputDevice.NumPOVPositions; j++)
-                {
-                    for (var m = 0; m < GameState.NumModes; m++)
-                    {
-                        if (!Device.enabledModes[m])
-                            continue;
-                        Boolean.TryParse(ini.IniReadValue(Section + "." + GameState.ModeName[0], "POV" + (i + 1) + "." +
-                            AltDirectInputDevice.POVPositionName[j] + ".Continuous"), out Device.Pov[i].Button[j].Continuous[m]);
-                        ParseMapping(Section, "POV" + (i + 1) + "." +
-                            AltDirectInputDevice.POVPositionName[j], Device.Pov[i].Button[j].Mapping, m);
-                    }
-                }
-#if (DEBUG)
-                for (var m = 0; m < GameState.NumModes; m++)
-                {
-                    if (!Device.enabledModes[m]) continue;
-                    String Mappings = "";
-                    for (var j = 0; j < AltDirectInputDevice.NumPOVPositions; j++)
-                        Mappings += ((j != 0) ? ", " : "") + AltDirectInputDevice.POVPositionName[j] + " = '" +
-                            Device.Pov[i].Button[j].Mapping[m].Action + "', Value = " +
-                            Device.Pov[i].Button[j].Mapping[m].Value;
-                    print("Altinput: POV #" + (i + 1) + " [" + GameState.ModeName[m] + "]: " + Mappings);
-                }
-#endif
-            }
-
-            // Process the buttons
-            for (var i = 0; i < Device.Joystick.Capabilities.ButtonCount; i++)
-            {
-                for (var m = 0; m < GameState.NumModes; m++)
-                {
-                    if (!Device.enabledModes[m])
-                        continue;
-                    Boolean.TryParse(ini.IniReadValue(Section + "." + GameState.ModeName[m], "Button" + (i + 1) + ".Continuous"),
-                        out Device.Button[i].Continuous[m]);
-                    ParseMapping(Section, "Button" + (i + 1), Device.Button[i].Mapping, m);
-                }
-#if (DEBUG)
-                for (var m = 0; m < GameState.NumModes; m++)
-                {
-                    if (!Device.enabledModes[m]) continue;
-                    String Mappings = "Mapping = '" + Device.Button[i].Mapping[m].Action + "'";
-                    if (Device.Button[i].Mapping[m].Value != 0.0f)
-                        Mappings += ", Value = " + Device.Button[i].Mapping[m].Value;
-                    print("Altinput: Button #" + (i + 1) + "[" + GameState.ModeName[m] + "]: " + Mappings);
-                }
-#endif
-            }
-
         }
 
         /// <summary>
@@ -319,8 +254,7 @@ namespace AltInput
                     if (dev.InstanceName.Contains(section))
                     {
                         InterfaceName = ini.IniReadValue(section, "Interface");
-                        if ((InterfaceName == "") || (ini.IniReadValue(section, "Ignore") == "true"))
-                            break;
+                        if (InterfaceName == "") break;
                         if (InterfaceName != "DirectInput")
                         {
                             print("AltInput[" + section + "]: Only 'DirectInput' is supported for Interface type");
